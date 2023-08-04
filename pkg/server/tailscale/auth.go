@@ -43,10 +43,12 @@ func createKey(src string, dst string, dstPort string) string {
 func (am *authorizer) IsAuthorized(src string, dst string, dstPort string) (bool, error) {
 	log.Debug().Str("src", src).Str("dst", dst).Msg("Checking if authorized")
 	if !isInTailscaleNet(src) {
+		log.Debug().Str("src", src).Str("dst", dst).Msg("Src not in tailscale net")
 		return false, nil
 	}
 
 	if !isInTailscaleNet(dst) {
+		log.Debug().Str("src", src).Str("dst", dst).Msg("Dst not in tailscale net")
 		return true, nil
 	}
 
@@ -57,12 +59,14 @@ func (am *authorizer) IsAuthorized(src string, dst string, dstPort string) (bool
 	}
 
 	authorized, err := isAuthorized(am.tailnet, am.token, src, dst, dstPort)
-	log.Debug().Str("authorized", strconv.FormatBool(authorized)).Msg("api response")
+	log.Debug().Str("authorized", strconv.FormatBool(authorized)).Msg("Checking if authorized using api")
 	if err != nil {
+		log.Error().Err(err).Msg("Could not check if authorized")
 		return false, err
 	}
 
 	am.cache.Set(createKey(src, dst, dstPort), authorized, am.ttl)
+	log.Debug().Str("authorized", strconv.FormatBool(authorized)).Msg("Cache set")
 	return authorized, nil
 }
 
@@ -75,6 +79,7 @@ func isInTailscaleNet(ipstr string) bool {
 
 	ip := net.ParseIP(ipstr)
 	if ip == nil {
+		log.Warn().Str("ip", ipstr).Msg("Could not parse ip")
 		return false
 	}
 
