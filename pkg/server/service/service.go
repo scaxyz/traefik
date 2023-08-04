@@ -271,6 +271,15 @@ func (trt *TailScaleRoundTripper) RoundTrip(req *http.Request) (*http.Response, 
 	host := strings.Split(req.Host, ":")[0]
 	port := req.URL.Port()
 
+	if port == "" {
+		if req.URL.Scheme == "http" {
+			port = "80"
+		}
+		if req.URL.Scheme == "https" {
+			port = "443"
+		}
+	}
+
 	ips, err := net.LookupHost(host)
 	if err != nil {
 		return nil, err
@@ -280,7 +289,7 @@ func (trt *TailScaleRoundTripper) RoundTrip(req *http.Request) (*http.Response, 
 		return nil, errors.New("could not resolve host")
 	}
 
-	ip := ips[0]
+	hostIp := ips[0]
 
 	xRealIp := req.Header.Get("X-Real-Ip")
 
@@ -288,7 +297,7 @@ func (trt *TailScaleRoundTripper) RoundTrip(req *http.Request) (*http.Response, 
 		return nil, errors.New("X-Real-Ip header not found")
 	}
 
-	authorized, err := trt.authorizer.IsAuthorized(xRealIp, ip, port)
+	authorized, err := trt.authorizer.IsAuthorized(xRealIp, hostIp, port)
 	if err != nil {
 		return nil, err
 	}
