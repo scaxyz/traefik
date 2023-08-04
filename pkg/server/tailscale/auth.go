@@ -71,7 +71,7 @@ func (am *authorizer) IsAuthorized(src string, dst string, dstPort string) (bool
 }
 
 var tailscaleNet = net.IPNet{
-	IP:   net.IPv4(10, 0, 0, 0),
+	IP:   net.IPv4(100, 0, 0, 0),
 	Mask: net.IPv4Mask(255, 0, 0, 0),
 }
 
