@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 const apiEndPoint = "https://api.tailscale.com/api/v2/tailnet"
@@ -39,7 +41,7 @@ func createKey(src string, dst string, dstPort string) string {
 }
 
 func (am *authorizer) IsAuthorized(src string, dst string, dstPort string) (bool, error) {
-
+	log.Debug().Str("src", src).Str("dst", dst).Msg("Checking if authorized")
 	if !isInTailscaleNet(src) {
 		return false, nil
 	}
@@ -49,13 +51,13 @@ func (am *authorizer) IsAuthorized(src string, dst string, dstPort string) (bool
 	}
 
 	access, fresh, _ := am.cache.Get(createKey(src, dst, dstPort))
-
+	log.Debug().Str("fresh", strconv.FormatBool(fresh)).Msg("Cache retrieved")
 	if fresh {
 		return access, nil
 	}
 
 	authorized, err := isAuthorized(am.tailnet, am.token, src, dst, dstPort)
-
+	log.Debug().Str("authorized", strconv.FormatBool(authorized)).Msg("api response")
 	if err != nil {
 		return false, err
 	}
