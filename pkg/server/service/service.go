@@ -6,14 +6,18 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"io"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/traefik/traefik/v3/pkg/config/dynamic"
 	"github.com/traefik/traefik/v3/pkg/config/runtime"
@@ -28,6 +32,7 @@ import (
 	"github.com/traefik/traefik/v3/pkg/server/service/loadbalancer/failover"
 	"github.com/traefik/traefik/v3/pkg/server/service/loadbalancer/mirror"
 	"github.com/traefik/traefik/v3/pkg/server/service/loadbalancer/wrr"
+	"github.com/traefik/traefik/v3/pkg/server/tailscale"
 )
 
 const defaultMaxBodySize int64 = -1
@@ -92,6 +97,11 @@ func (m *Manager) BuildHTTP(rootCtx context.Context, serviceName string) (http.H
 			count++
 		}
 	}
+
+	if conf.Tailscale != nil {
+		count--
+	}
+
 	if count > 1 {
 		err := errors.New("cannot create service: multi-types service not supported, consider declaring two different pieces of service instead")
 		conf.AddError(err, true)
@@ -250,6 +260,55 @@ func (m *Manager) getWRRServiceHandler(ctx context.Context, serviceName string, 
 	return balancer, nil
 }
 
+type TailScaleRoundTripper struct {
+	next       http.RoundTripper
+	logger     *zerolog.Logger
+	authorizer tailscale.Authorizer
+}
+
+func (trt *TailScaleRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+
+	host := strings.Split(req.Host, ":")[0]
+	port := req.URL.Port()
+
+	ips, err := net.LookupHost(host)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(ips) == 0 {
+		return nil, errors.New("could not resolve host")
+	}
+
+	ip := ips[0]
+
+	xRealIp := req.Header.Get("X-Real-Ip")
+
+	if strings.TrimSpace(xRealIp) == "" {
+		return nil, errors.New("X-Real-Ip header not found")
+	}
+
+	authorized, err := trt.authorizer.IsAuthorized(xRealIp, ip, port)
+	if err != nil {
+		return nil, err
+	}
+
+	if !authorized {
+		bodyStr := "Unauthorized"
+		header := http.Header{}
+		header.Add("content-length", strconv.Itoa(len(bodyStr)))
+		header.Add("content-type", "text/plain; charset=utf-8")
+		return &http.Response{
+			StatusCode: http.StatusUnauthorized,
+			Body:       io.NopCloser(strings.NewReader(bodyStr)),
+			Header:     header,
+		}, nil
+		// return nil, errors.New("not authorized")
+	}
+
+	return trt.next.RoundTrip(req)
+}
+
 func (m *Manager) getLoadBalancerServiceHandler(ctx context.Context, serviceName string, info *runtime.ServiceInfo) (http.Handler, error) {
 	service := info.LoadBalancer
 
@@ -280,6 +339,20 @@ func (m *Manager) getLoadBalancerServiceHandler(ctx context.Context, serviceName
 	if err != nil {
 		return nil, err
 	}
+
+	if info.Tailscale != nil {
+		ttl, err := time.ParseDuration(info.Tailscale.TTL)
+		if err != nil {
+			return nil, err
+		}
+		roundTripper = &TailScaleRoundTripper{
+			next:       roundTripper,
+			logger:     logger,
+			authorizer: tailscale.NewAuthorizer(info.Tailscale.Tailnet, info.Tailscale.Token, ttl),
+		}
+	}
+
+	logger.Debug().Msg("created roundtripper -- ####")
 
 	lb := wrr.New(service.Sticky, service.HealthCheck != nil)
 	healthCheckTargets := make(map[string]*url.URL)

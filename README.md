@@ -1,4 +1,5 @@
-
+# Traefik x Tailscale-ACL
+[jump to changes](#trafik-x-tailscale-acl---changes)
 <p align="center">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="docs/content/assets/img/traefik.logo-dark.png">
@@ -158,3 +159,34 @@ The gopher's logo of Traefik is licensed under the Creative Commons 3.0 Attribut
 
 The gopher's logo of Traefik was inspired by the gopher stickers made by [Takuya Ueda](https://twitter.com/tenntenn).
 The original Go gopher was designed by [Renee French](https://reneefrench.blogspot.com/).
+
+## Trafik x Tailscale-ACL - Changes
+This fork add the posiblily to restrict access to serivces based on the acl (accless-controll-list) of a tailnet.
+All request from a non tailscale ip will be returned witha 401 Code (the `X-Real-IP` header is used to determine the source ip).  
+All request to a non tailscale ip will be forwared.  
+The accces of the source ip to the destination ip will be validated using a cache or the tailscale api.
+
+
+Use on your own risk.
+
+example config:
+```yml
+  services:
+    service1:
+      tailscale:
+        token: "***REMOVED***"
+        ttl: "5m"
+      loadBalancer:
+        servers:
+          - url: "http://10.xx.yy.zz:1234"
+```
+
+```
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```

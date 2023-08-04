@@ -2,6 +2,7 @@ package dynamic
 
 import (
 	"reflect"
+	"sync"
 	"time"
 
 	ptypes "github.com/traefik/paerser/types"
@@ -49,6 +50,7 @@ type Service struct {
 	Weighted     *WeightedRoundRobin  `json:"weighted,omitempty" toml:"weighted,omitempty" yaml:"weighted,omitempty" label:"-" export:"true"`
 	Mirroring    *Mirroring           `json:"mirroring,omitempty" toml:"mirroring,omitempty" yaml:"mirroring,omitempty" label:"-" export:"true"`
 	Failover     *Failover            `json:"failover,omitempty" toml:"failover,omitempty" yaml:"failover,omitempty" label:"-" export:"true"`
+	Tailscale    *Tailscale           `json:"tailScale,omitempty" toml:"tailScale,omitempty" yaml:"tailScale,omitempty" label:"-" export:"true"`
 }
 
 // +k8s:deepcopy-gen=true
@@ -96,6 +98,17 @@ type Failover struct {
 	Service     string       `json:"service,omitempty" toml:"service,omitempty" yaml:"service,omitempty" export:"true"`
 	Fallback    string       `json:"fallback,omitempty" toml:"fallback,omitempty" yaml:"fallback,omitempty" export:"true"`
 	HealthCheck *HealthCheck `json:"healthCheck,omitempty" toml:"healthCheck,omitempty" yaml:"healthCheck,omitempty" label:"allowEmpty" file:"allowEmpty" export:"true"`
+}
+
+// +k8s:deepcopy-gen=true
+
+// Tailscale holds the Tailscale configuration.
+type Tailscale struct {
+	Tailnet     string   `json:"tailnet,omitempty" toml:"tailnet,omitempty" yaml:"tailnet,omitempty" export:"true"`
+	Token       string   `json:"token,omitempty" toml:"token,omitempty" yaml:"token,omitempty" export:"true"`
+	TTL         string   `json:"ttl,omitempty" toml:"ttl,omitempty" yaml:"ttl,omitempty" export:"true"`
+	SharedCache bool     `json:"sharedCache,omitempty" toml:"sharedCache,omitempty" yaml:"sharedCache,omitempty" export:"true"`
+	Cache       sync.Map `json:"cache,omitempty" toml:"cache,omitempty" yaml:"cache,omitempty" export:"false"`
 }
 
 // +k8s:deepcopy-gen=true
