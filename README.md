@@ -174,7 +174,7 @@ example config:
   services:
     service1:
       tailscale:
-        token: "***REMOVED***"
+        token: "tskey-api-xxxxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
         ttl: "5m"
       loadBalancer:
         servers:
